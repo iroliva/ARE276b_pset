@@ -17,13 +17,12 @@ data <- read_dta(data_path)
 ## 1. Estimate the relationship between changes in air pollution and housing prices:
 
 ### 1.1 Not adjusting for any control variable.
-
-model11 <- lm(dlhouse ~ dgtsp, data = data)
+model11 <- lm(dlhouse ~ I(dgtsp / 100), data = data)
 summary(model11)
 
 ### 1.2 Adjusting for the main effects of the control variables listed on the previous page
 
-model12 <- lm(dlhouse ~ dgtsp + tsp75 + tsp7576 + mtspgm74 + mtspgm75, data = data)
+model12 <- lm(dlhouse ~ I(dgtsp / 100) + tsp75 + tsp7576 + mtspgm74 + mtspgm75, data = data)
 summary(model12)
 
 ### 1.3 adjusting for the main effects, polynomials and interactions of the control variables included in the data set
@@ -56,3 +55,11 @@ stargazer(model11, model12, model13, type = "latex",
 
 ## 3. Revise instrument assumptions
 
+### 3.1 First stage relationship between regulation and air pollution changes.
+
+model31 <- lm(dgtsp ~ tsp7576 + 0, data = data)
+summary(model31)
+
+### 3.2 Relation between regulation and housing price changes, using 3 same specifications in 1.
+model32 <- lm(dlhouse ~ tsp7576, data = data)
+summary(model32)
