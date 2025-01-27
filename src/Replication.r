@@ -4,14 +4,12 @@
 #Ignacio Oliva
 
 #Packages
-#install.packages("haven")
 library(haven)             # package for reading dta
-
-#install.packages("stargazer")
 library(stargazer)
 
 ## Import data
-data_path <- "C:/Users/ignol/Box/0 davis/2024-2025 term 2/ARE276b/ARE276b_pset/data/poll7080.dta"
+data_path <- "./data/poll7080.dta"
+
 data <- read_dta(data_path)
 
 ## 1. Estimate the relationship between changes in air pollution and housing prices:
