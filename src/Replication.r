@@ -5,11 +5,12 @@
 
 #Packages
 library(haven)             # package for reading dta
-library(stargazer)
+library(stargazer)         # package for exporting tables
+library(tidyverse)
+library(rstatix)          # package for statistical tests and adding significance
 
 ## Import data
 data_path <- "./data/poll7080.dta"
-
 data <- read_dta(data_path)
 
 ## 1. Estimate the relationship between changes in air pollution and housing prices:
@@ -25,7 +26,7 @@ summary(model12)
 
 ### 1.3 adjusting for the main effects, polynomials and interactions of the control variables included in the data set
 
-model13 <- lm(dlhouse ~ dgtsp + tsp75 + tsp7576 + mtspgm74 + mtspgm75 + 
+model13 <- lm(dlhouse ~ I(dgtsp / 100) + tsp75 + tsp7576 + mtspgm74 + mtspgm75 + 
     ddens + dmnfcg + dwhite + dfeml + dage65 + dhs + dcoll + durban + dunemp + 
     dincome + dpoverty + vacant70 + vacant80 + vacrnt70 + downer + dplumb +
     drevenue + dtaxprop + depend + deduc + dhghwy + dwelfr + dhlth + blt1080 +
@@ -49,7 +50,30 @@ stargazer(model11, model12, model13, type = "latex",
 
 ### 2.1 Assumptions for being a valid instrument
 
-### 2.2 Evidence
+#### Uncorrelation 
+
+
+### 2.2 Evidence: Replicate balance table, column 4
+# Calculate means for each variable based on tsp75
+variables <- c("dgtsp", "dlhouse", "mtspgm74", "mtspgm75", "ddens", "dmnfcg", "dwhite", "dfeml", 
+               "dage65", "dhs", "dcoll", "durban", "dunemp", "dincome", "dpoverty", "vacant70", "vacant80", 
+               "vacrnt70", "downer", "dplumb", "drevenue", "dtaxprop", "depend", "deduc", "dhghwy", "dwelfr", 
+               "dhlth", "blt1080", "blt2080", "bltold80")
+
+mean_differences <- data %>%
+    select(all_of(variables), tsp7576) %>%
+    pivot_longer(cols = -tsp7576, names_to = "variable", values_to = "value") %>%
+    mutate(variable = factor(variable, levels = variables)) %>%
+    group_by(variable) %>%
+    t_test(value ~ tsp7576) %>%
+    add_significance()
+   
+mean_differences <- mean_differences %>%
+        mutate(statistic = -statistic)
+
+
+# Create a table showing the results of the t-tests
+
 
 ## 3. Revise instrument assumptions
 
