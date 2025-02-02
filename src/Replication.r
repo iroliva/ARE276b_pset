@@ -196,3 +196,33 @@ stargazer(model331a, model331b, model331c, model332a, model332b, model332c, type
                                "Change in Health Spending", "Built 1970-1980",
                                "Built 1980-1990", "Built Before 1980"),
           out = "Table_q3_3.tex")
+
+# Q4
+# Q4: Time series plot of the mean of mtspgm72 to mtspgm80, differentiating by tsp75
+
+# Create a new data frame with the means for each year and tsp75 group
+mean_data <- data %>%
+    pivot_longer(cols = starts_with("mtspgm"), names_to = "year", values_to = "value") %>%
+    mutate(year = as.numeric(str_extract(year, "\\d+"))) %>%
+    group_by(year, tsp75) %>%
+    summarize(mean_value = mean(value, na.rm = TRUE)) %>%
+    filter(year <= 80) %>%
+    filter(year > 69) %>%
+    filter(!is.na(tsp75))%>%
+    ungroup()
+    
+
+# Plot the time series
+fig4_tsp <- ggplot(mean_data, aes(x = year, y = mean_value, color = factor(tsp75)))+
+    geom_line() +
+    geom_point() +
+    labs(title = "Mean TSP Growth (1972-1980) by TSP 1975 Group",
+             x = "Year",
+             y = "Annual Average TSP",
+             color = "TSP 1975") +
+    theme_minimal() +
+    geom_vline(xintercept = 74, linetype = "dashed", color = "black") +
+    scale_y_continuous(limits = c(45, 95))
+
+    # Save the plot
+    ggsave("Figure_q4_tsp.jpg", plot = fig4, width = 8, height = 6, dpi = 300)
