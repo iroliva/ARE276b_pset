@@ -8,52 +8,111 @@ library(haven)    # package for reading dta
 library(stargazer) # package for exporting tables
 library(tidyverse)
 library(rstatix)  # package for statistical tests and adding significance
-library(ivreg)
+library(ivreg)  #package for IV regression
 # Import data
 data_path <- "./data/poll7080.dta"
 data <- read_dta(data_path)
 
+#0. Set up
+
+main_controls <- c("ddens", "dmnfcg", "dwhite", "dfeml", "dage65", "dhs",
+                    "dcoll", "durban", "dunemp", "dincome", "dpoverty",
+                    "downer", "dplumb", "drevenue", "dtaxprop", "depend",
+                    "deduc", "dhghwy", "dwelfr", "dhlth", "vacant70",
+                    "vacant80", "vacrnt70", "blt1080", "blt2080", "bltold80")
+
+polinomial_controls <- c("popwhite", "popage65", "pophs", "popcoll", "popincm",
+                         "manwhite", "manage65", "manhs", "mancoll", "manincm",
+                         "whtage", "whths", "whtcoll", "whtincm", "incage",
+                         "inchs", "inccoll", "pop2", "pop3", "urban2",
+                         "urban3", "white2", "white3", "femal2", "femal3",
+                         "age2", "age3", "hs2", "hs3", "coll2", "coll3",
+                         "unemp2", "unemp3", "mnfcg2", "mnfcg3", "income2",
+                         "income3", "poverty2", "poverty3", "vacant2",
+                         "vacant3", "owner2", "owner3", "plumb2", "plumb3",
+                         "revenue2", "revenue3", "taxprop2", "taxprop3",
+                         "epend2", "epend3", "pcteduc2", "pcteduc3", "pcthghw2",
+                         "pcthghw3", "pctwelf2", "pctwelf3", "pcthlth2",
+                         "pcthlth3", "built102", "built103", "built202",
+                         "built203", "builold2", "builold3")
+
+all_controls <- c(main_controls, polinomial_controls)
+
+my_lm <- function(y, var, controls, database){
+    formula <- reformulate(termlabels = paste(c(var, controls)), response = y)
+    output <- lm(formula, data = database)
+    return (output)
+}
+
 # 1. Estimate the relationship between changes in air pollution and housing prices:
 
-# 1.1 Not adjusting for any control variable.
-model11 <- lm(dlhouse ~ I(dgtsp / 100), data = data)
-summary(model11)
+## Regressions
+model1 <- lm(dlhouse ~ I(dgtsp / 100), data = data)
 
-# 1.2 Adjusting for the main effects of the control variables listed on the previous page
-model12 <- lm(dlhouse ~ I(dgtsp / 100) + tsp75 + tsp7576 + mtspgm74 + mtspgm75,
-              data = data)
-summary(model12)
+model1_main <- my_lm("dlhouse", "I(dgtsp / 100)",
+                     main_controls, data)
 
-# 1.3 Adjusting for the main effects, polynomials and interactions of the control variables
-model13 <- lm(dlhouse ~ I(dgtsp / 100) + tsp75 + tsp7576 + mtspgm74 + mtspgm75 +
-              ddens + dmnfcg + dwhite + dfeml + dage65 + dhs + dcoll + durban +
-              dunemp + dincome + dpoverty + vacant70 + vacant80 + vacrnt70 +
-              downer + dplumb + drevenue + dtaxprop + depend + deduc + dhghwy +
-              dwelfr + dhlth + blt1080 + blt2080 + bltold80, data = data)
-summary(model13)
+model1_all <- my_lm("dlhouse", "I(dgtsp / 100)",
+                    all_controls, data)
 
-# Answers
-stargazer(model11, model12, model13, type = "latex",
+summary(model1_all)
+
+## Table with results
+stargazer(model1, model1_main, model1_all, type = "text",
+          keep = "dgtsp",
           title = "Regression Results",
-          dep.var.labels = "Change in Housing Prices",
-          covariate.labels = c("Change in Air Pollution", "TSP 1975", "TSP 1975-76",
-                               "Mean TSP Growth 1974", "Mean TSP Growth 1975",
-                               "Change in Density", "Change in Manufacturing",
-                               "Change in White Population", "Change in Female Labor Force",
-                               "Change in Age 65+", "Change in High School Graduates",
-                               "Change in College Graduates", "Change in Urban Population",
-                               "Change in Unemployment", "Change in Income",
-                               "Change in Poverty", "Vacant Housing 1970",
-                               "Vacant Housing 1980", "Vacant Rental Housing 1970",
-                               "Change in Home Ownership", "Change in Plumbing",
-                               "Change in Revenue", "Change in Property Tax",
-                               "Change in Dependents", "Change in Education Spending",
-                               "Change in Highway Spending", "Change in Welfare Spending",
-                               "Change in Health Spending", "Built 1970-1980",
-                               "Built 1980-1990", "Built Before 1980"),
+          dep.var.labels = "1970-80 (First Differences)",
+          covariate.labels = "Mean TSPs (1/100)",
+          add.lines = list(c("Main effects", "No", "Yes", "Yes"),
+                           c("Main and Polinomials", "No", "No", "Yes")),
           out = "Table_q1.tex")
 
+
 # 2. Use tsp7576 as an instrument.
+
+list <- c("dlhouse", "dgtsp", "dincome", "", "dunemp", "dmnfcg",
+            "ddens", "I(durban * 10)", "I(dpoverty * 10)", 
+            "I(dwhite * 10)", )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+B1 <- lm(dgtsp ~ tsp7576, data = data)
+B2 <- lm(dincome ~ tsp7576, data = data)
+B3 <- lm(dunemp ~ tsp7576, data = data)
+
+# Collect the estimates of tsp7576 in a table
+tsp7576_estimates <- data.frame(
+    Variable = c("dgtsp", "dincome", "dunemp"),
+    Estimate = c(coef(B1)["tsp7576"], coef(B2)["tsp7576"], coef(B3)["tsp7576"]),
+    Std_Error = c(summary(B1)$coefficients["tsp7576", "Std. Error"],
+                  summary(B2)$coefficients["tsp7576", "Std. Error"],
+                  summary(B3)$coefficients["tsp7576", "Std. Error"]),
+    t_value = c(summary(B1)$coefficients["tsp7576", "t value"],
+                summary(B2)$coefficients["tsp7576", "t value"],
+                summary(B3)$coefficients["tsp7576", "t value"]),
+    p_value = c(summary(B1)$coefficients["tsp7576", "Pr(>|t|)"],
+                summary(B2)$coefficients["tsp7576", "Pr(>|t|)"],
+                summary(B3)$coefficients["tsp7576", "Pr(>|t|)"])
+)
+
+print(tsp7576_estimates)
+
+
+summary(AAA)
+
+
+
 
 # 2.1 Assumptions for being a valid instrument
 
@@ -77,6 +136,8 @@ mean_differences <- data %>%
 
 mean_differences <- mean_differences %>%
     mutate(statistic = -statistic)
+
+mean_differences
 
 # Create a table showing the results of the t-tests
 
