@@ -67,11 +67,14 @@ stargazer(model1, model1_main, model1_all, type = "text",
 
 # 2. Use tsp7576 as an instrument.
 
-economic_vars <- c("dlhouse", "dgtsp", "dincome", "pop7080", "dunemp", "dmnfcg",
-            "ddens", "I(durban * 10)", "I(dpoverty * 10)",
-            "I(dwhite * 10)", "blt1080", "downer", "I(dplumb * 100)",
-             "drevenue", "dtaxprop", "deduc")
 
+
+
+## Replication Table 2, column 4
+economic_vars <- c("dlhouse", "dgtsp", "dincome", "pop7080", "dunemp", "dmnfcg",
+                "ddens", "I(durban * 10)", "I(dpoverty * 10)",
+                "I(dwhite * 10)", "blt1080", "downer", "I(dplumb * 100)",
+                "drevenue", "dtaxprop", "deduc") 
             # Loop to regress each variable in the list on tsp7576
             regression_results <- list()
 
@@ -86,56 +89,6 @@ economic_vars <- c("dlhouse", "dgtsp", "dincome", "pop7080", "dunemp", "dmnfcg",
                 cat("Regression results for", var, ":\n")
                 print(regression_results[[var]])
                 cat("\n")}
-                        # Extract coefficients and standard errors from regression results
-                        coef_list <- lapply(regression_results, function(x) x$coefficients["tsp7576", ])
-
-                        # Create a data frame to store the results
-                        results_df <- data.frame(
-                            Variable = names(coef_list),
-                            Estimate = sapply(coef_list, function(x) x["Estimate"]),
-                            Std_Error = sapply(coef_list, function(x) x["Std. Error"]),
-                            t_value = sapply(coef_list, function(x) x["t value"]),
-                            p_value = sapply(coef_list, function(x) x["Pr(>|t|)"])
-                        )
-
-                        # Create a stargazer table with the results
-                        stargazer(results_df, type = "text",
-                                            title = "Regression Results for tsp7576",
-                                            out = "Regression_Results_tsp7576.tex")
-
-
-
-
-
-
-
-
-B1 <- lm(dgtsp ~ tsp7576, data = data)
-B2 <- lm(dlhouse ~ tsp7576, data = data)
-B3 <- lm(dunemp ~ tsp7576, data = data)
-
-# Collect the estimates of tsp7576 in a table
-tsp7576_estimates <- data.frame(
-    Variable = c("dgtsp", "dincome", "dunemp"),
-    Estimate = c(coef(B1)["tsp7576"], coef(B2)["tsp7576"], coef(B3)["tsp7576"]),
-    Std_Error = c(summary(B1)$coefficients["tsp7576", "Std. Error"],
-                  summary(B2)$coefficients["tsp7576", "Std. Error"],
-                  summary(B3)$coefficients["tsp7576", "Std. Error"]),
-    t_value = c(summary(B1)$coefficients["tsp7576", "t value"],
-                summary(B2)$coefficients["tsp7576", "t value"],
-                summary(B3)$coefficients["tsp7576", "t value"]),
-    p_value = c(summary(B1)$coefficients["tsp7576", "Pr(>|t|)"],
-                summary(B2)$coefficients["tsp7576", "Pr(>|t|)"],
-                summary(B3)$coefficients["tsp7576", "Pr(>|t|)"])
-)
-
-print(tsp7576_estimates)
-
-
-summary(AAA)
-
-
-
 
 # 2.1 Assumptions for being a valid instrument
 
@@ -166,85 +119,21 @@ mean_differences
 # 3. Revise instrument assumptions
 
 # 3.1 First stage relationship between regulation and air pollution changes.
-model31a <- lm(dgtsp ~ tsp7576, data = data)
-summary(model31a)
 
-model131b <- lm(dgtsp ~ tsp7576 + tsp75 + mtspgm74 + mtspgm75, data = data)
+first_stage         <- lm(dgtsp ~ tsp7576, data = data)
 
-model131c <- lm(dgtsp ~ tsp7576 + tsp7576 + tsp75 + mtspgm74 + mtspgm75 +
-                ddens + dmnfcg + dwhite + dfeml + dage65 + dhs + dcoll +
-                durban + dunemp + dincome + dpoverty + vacant70 + vacant80 +
-                vacrnt70 + downer + dplumb + drevenue + dtaxprop + depend +
-                deduc + dhghwy + dwelfr + dhlth + blt1080 + blt2080 + bltold80,
-                data = data)
+first_stage_main    <- my_lm("dgtsp", "tsp7576", main_controls, data)
 
-stargazer(model31a, model131b, model131c, type = "latex",
-          title = "First Stage Regression Results",
-          dep.var.labels = "Change in Air Pollution",
-          covariate.labels = c("TSP 1975-76", "TSP 1975", "Mean TSP Growth 1974",
-                               "Mean TSP Growth 1975", "Change in Density",
-                               "Change in Manufacturing", "Change in White Population",
-                               "Change in Female Labor Force", "Change in Age 65+",
-                               "Change in High School Graduates", "Change in College Graduates",
-                               "Change in Urban Population", "Change in Unemployment",
-                               "Change in Income", "Change in Poverty", "Vacant Housing 1970",
-                               "Vacant Housing 1980", "Vacant Rental Housing 1970",
-                               "Change in Home Ownership", "Change in Plumbing",
-                               "Change in Revenue", "Change in Property Tax",
-                               "Change in Dependents", "Change in Education Spending",
-                               "Change in Highway Spending", "Change in Welfare Spending",
-                               "Change in Health Spending", "Built 1970-1980",
-                               "Built 1980-1990", "Built Before 1980"),
-          out = "Table_q3_1.tex")
+first_stage_all     <- my_lm("dgtsp", "tsp7576", all_controls, data)
 
-# 3.2 Relation between regulation and housing price changes, using 3 same specifications in 1.
-model32a <- lm(dlhouse ~ tsp7576, data = data)
-summary(model32a)
+second_stage        <- lm(dlhouse ~ tsp7576, data = data)
 
-model132b <- lm(dlhouse ~ tsp7576 + tsp75 + mtspgm74 + mtspgm75, data = data)
+second_stage_main   <- my_lm("dlhouse", "tsp7576", main_controls, data)
 
-model132c <- lm(dlhouse ~ tsp7576 + tsp7576 + tsp75 + mtspgm74 + mtspgm75 +
-                ddens + dmnfcg + dwhite + dfeml + dage65 + dhs + dcoll +
-                durban + dunemp + dincome + dpoverty + vacant70 + vacant80 +
-                vacrnt70 + downer + dplumb + drevenue + dtaxprop + depend +
-                deduc + dhghwy + dwelfr + dhlth + blt1080 + blt2080 + bltold80,
-                data = data)
+second_stage_all    <- my_lm("dlhouse", "tsp7576", all_controls, data)
 
-stargazer(model32a, model132b, model132c, type = "latex",
-          title = "Second Stage Regression Results",
-          dep.var.labels = "Change in Housing Prices",
-          covariate.labels = c("TSP 1975-76", "TSP 1975", "Mean TSP Growth 1974",
-                               "Mean TSP Growth 1975", "Change in Density",
-                               "Change in Manufacturing", "Change in White Population",
-                               "Change in Female Labor Force", "Change in Age 65+",
-                               "Change in High School Graduates", "Change in College Graduates",
-                               "Change in Urban Population", "Change in Unemployment",
-                               "Change in Income", "Change in Poverty", "Vacant Housing 1970",
-                               "Vacant Housing 1980", "Vacant Rental Housing 1970",
-                               "Change in Home Ownership", "Change in Plumbing",
-                               "Change in Revenue", "Change in Property Tax",
-                               "Change in Dependents", "Change in Education Spending",
-                               "Change in Highway Spending", "Change in Welfare Spending",
-                               "Change in Health Spending", "Built 1970-1980",
-                               "Built 1980-1990", "Built Before 1980"),
-          out = "Table_q3_2.tex")
+iv <- ivreg(dlhouse ~ I(dgtsp / 100) | tsp7576, data = data)
 
-# 3.3 2SLS using two different instruments
-
-# Using tsp7576 as an instrument
-model331a <- ivreg(dlhouse ~ I(dgtsp / 100) | tsp7576, data = data)
-summary(model331a)
-
-model331b <- ivreg(dlhouse ~ tsp75 + mtspgm74 + mtspgm75 | I(dgtsp / 100) | tsp7576  , data = data)
-summary(model331b)
-
-model331c <- ivreg(dlhouse ~ tsp75 + mtspgm74 + mtspgm75 +
-                ddens + dmnfcg + dwhite + dfeml + dage65 + dhs + dcoll +
-                durban + dunemp + dincome + dpoverty + vacant70 + vacant80 +
-                vacrnt70 + downer + dplumb + drevenue + dtaxprop + depend +
-                deduc + dhghwy + dwelfr + dhlth + blt1080 + blt2080 + bltold80 |
-                I(dgtsp / 100) | tsp7576, data = data)
-summary(model331c)
 
 # Using tsp75 as an instrument
 model332a <- ivreg(dlhouse ~ I(dgtsp / 100) | tsp75, data = data)
