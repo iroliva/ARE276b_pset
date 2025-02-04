@@ -49,13 +49,10 @@ my_lm <- function(y, var, controls, database){
 ## Regressions
 model1 <- lm(dlhouse ~ I(dgtsp / 100), data = data)
 
-model1_main <- my_lm("dlhouse", "I(dgtsp / 100)",
-                     main_controls, data)
+model1_main <- my_lm("dlhouse", "I(dgtsp / 100)", main_controls, data)
 
-model1_all <- my_lm("dlhouse", "I(dgtsp / 100)",
-                    all_controls, data)
+model1_all <- my_lm("dlhouse", "I(dgtsp / 100)", all_controls, data)
 
-summary(model1_all)
 
 ## Table with results
 stargazer(model1, model1_main, model1_all, type = "text",
@@ -70,15 +67,41 @@ stargazer(model1, model1_main, model1_all, type = "text",
 
 # 2. Use tsp7576 as an instrument.
 
-list <- c("dlhouse", "dgtsp", "dincome", "", "dunemp", "dmnfcg",
-            "ddens", "I(durban * 10)", "I(dpoverty * 10)", 
-            "I(dwhite * 10)", )
+economic_vars <- c("dlhouse", "dgtsp", "dincome", "pop7080", "dunemp", "dmnfcg",
+            "ddens", "I(durban * 10)", "I(dpoverty * 10)",
+            "I(dwhite * 10)", "blt1080", "downer", "I(dplumb * 100)",
+             "drevenue", "dtaxprop", "deduc")
 
+            # Loop to regress each variable in the list on tsp7576
+            regression_results <- list()
 
+            for (var in economic_vars) {
+                formula <- as.formula(paste(var, "~ tsp7576"))
+                model <- lm(formula, data = data)
+                regression_results[[var]] <- summary(model)
+            }
 
+            # Print summaries of the regression results
+            for (var in names(regression_results)) {
+                cat("Regression results for", var, ":\n")
+                print(regression_results[[var]])
+                cat("\n")}
+                        # Extract coefficients and standard errors from regression results
+                        coef_list <- lapply(regression_results, function(x) x$coefficients["tsp7576", ])
 
+                        # Create a data frame to store the results
+                        results_df <- data.frame(
+                            Variable = names(coef_list),
+                            Estimate = sapply(coef_list, function(x) x["Estimate"]),
+                            Std_Error = sapply(coef_list, function(x) x["Std. Error"]),
+                            t_value = sapply(coef_list, function(x) x["t value"]),
+                            p_value = sapply(coef_list, function(x) x["Pr(>|t|)"])
+                        )
 
-
+                        # Create a stargazer table with the results
+                        stargazer(results_df, type = "text",
+                                            title = "Regression Results for tsp7576",
+                                            out = "Regression_Results_tsp7576.tex")
 
 
 
@@ -88,7 +111,7 @@ list <- c("dlhouse", "dgtsp", "dincome", "", "dunemp", "dmnfcg",
 
 
 B1 <- lm(dgtsp ~ tsp7576, data = data)
-B2 <- lm(dincome ~ tsp7576, data = data)
+B2 <- lm(dlhouse ~ tsp7576, data = data)
 B3 <- lm(dunemp ~ tsp7576, data = data)
 
 # Collect the estimates of tsp7576 in a table
@@ -120,11 +143,10 @@ summary(AAA)
 
 # 2.2 Evidence: Replicate balance table, column 4
 # Calculate means for each variable based on tsp75
-variables <- c("dgtsp", "dlhouse", "mtspgm74", "mtspgm75", "ddens", "dmnfcg",
-               "dwhite", "dfeml", "dage65", "dhs", "dcoll", "durban", "dunemp",
-               "dincome", "dpoverty", "vacant70", "vacant80", "vacrnt70",
-               "downer", "dplumb", "drevenue", "dtaxprop", "depend", "deduc",
-               "dhghwy", "dwelfr", "dhlth", "blt1080", "blt2080", "bltold80")
+variables <- c("dlhouse", "dgtsp", "dincome", "pop7080", "dunemp", "dmnfcg",
+            "ddens", "I(durban * 10)", "I(dpoverty * 10)",
+            "I(dwhite * 10)", "blt1080", "downer", "I(dplumb * 100)",
+             "drevenue", "dtaxprop", "deduc")
 
 mean_differences <- data %>%
     select(all_of(variables), tsp7576) %>%
