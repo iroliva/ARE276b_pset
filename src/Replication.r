@@ -7,8 +7,11 @@
 library(haven)    # package for reading dta
 library(stargazer) # package for exporting tables
 library(tidyverse)
+library(dplyr)
 library(rstatix)  # package for statistical tests and adding significance
 library(ivreg)  #package for IV regression
+library(ggplot2)
+
 # Import data
 data_path <- "./data/poll7080.dta"
 data <- read_dta(data_path)
@@ -132,69 +135,146 @@ second_stage_main   <- my_lm("dlhouse", "tsp7576", main_controls, data)
 
 second_stage_all    <- my_lm("dlhouse", "tsp7576", all_controls, data)
 
-iv <- ivreg(dlhouse ~ I(dgtsp / 100) | tsp7576, data = data)
+iv      <- ivreg(dlhouse ~ I(dgtsp / 100) | tsp7576, data = data)
+
+iv_main <- ivreg(
+    dlhouse ~ ddens + dmnfcg + dwhite + dfeml + dage65 + dhs +
+    dcoll + durban + dunemp + dincome + dpoverty + downer + dplumb + drevenue +
+    dtaxprop + depend + deduc + dhghwy + dwelfr + dhlth + vacant70 + vacant80 +
+    vacrnt70 + blt1080 + blt2080 + bltold80 | I(dgtsp / 100) | tsp7576,
+    data = data
+)
 
 
-# Using tsp75 as an instrument
-model332a <- ivreg(dlhouse ~ I(dgtsp / 100) | tsp75, data = data)
-summary(model332a)
+iv_all <- ivreg(
+dlhouse ~ ddens + dmnfcg + dwhite + dfeml + dage65 + dhs +
+dcoll + durban + dunemp + dincome + dpoverty + downer + dplumb + drevenue +
+dtaxprop + depend + deduc + dhghwy + dwelfr + dhlth + vacant70 + vacant80 +
+vacrnt70 + blt1080 + blt2080 + bltold80 + popwhite + popage65 + pophs +
+popcoll + popincm + manwhite + manage65 + manhs + mancoll + manincm +
+whtage + whths + whtcoll + whtincm + incage + inchs + inccoll + pop2 +
+pop3 + urban2 + urban3 + white2 + white3 + femal2 + femal3 + age2 + age3 +
+hs2 + hs3 + coll2 + coll3 + unemp2 + unemp3 + mnfcg2 + mnfcg3 + income2 +
+income3 + poverty2 + poverty3 + vacant2 + vacant3 + owner2 + owner3 +
+plumb2 + plumb3 + revenue2 + revenue3 + taxprop2 + taxprop3 + epend2 +
+epend3 + pcteduc2 + pcteduc3 + pcthghw2 + pcthghw3 + pctwelf2 + pctwelf3 +
+pcthlth2 + pcthlth3 + built102 + built103 + built202 + built203 + builold2 +
+builold3 | I(dgtsp / 100) | tsp7576, data = data
+)
 
-model332b <- ivreg(dlhouse ~ tsp7576 + mtspgm74 + mtspgm75 | I(dgtsp / 100) | tsp75, data = data)
-summary(model332b)
+iv75      <- ivreg(dlhouse ~ I(dgtsp / 100) | tsp75, data = data)
 
-model332c <- ivreg(dlhouse ~ tsp7576 + mtspgm74 + mtspgm75 +
-                ddens + dmnfcg + dwhite + dfeml + dage65 + dhs + dcoll +
-                durban + dunemp + dincome + dpoverty + vacant70 + vacant80 +
-                vacrnt70 + downer + dplumb + drevenue + dtaxprop + depend +
-                deduc + dhghwy + dwelfr + dhlth + blt1080 + blt2080 + bltold80 |
-                I(dgtsp / 100) | tsp75, data = data)
-summary(model332c)
+iv75_main <- ivreg(
+    dlhouse ~ ddens + dmnfcg + dwhite + dfeml + dage65 + dhs +
+    dcoll + durban + dunemp + dincome + dpoverty + downer + dplumb + drevenue +
+    dtaxprop + depend + deduc + dhghwy + dwelfr + dhlth + vacant70 + vacant80 +
+    vacrnt70 + blt1080 + blt2080 + bltold80 | I(dgtsp / 100) | tsp75,
+    data = data
+)
 
-stargazer(model331a, model331b, model331c, model332a, model332b, model332c, type = "latex",
-          title = "2SLS Regression Results",
-          dep.var.labels = "Change in Housing Prices",
-          covariate.labels = c("Change in Air Pollution", "TSP 1975", "Mean TSP Growth 1974",
-                               "Mean TSP Growth 1975", "Change in Density",
-                               "Change in Manufacturing", "Change in White Population",
-                               "Change in Female Labor Force", "Change in Age 65+",
-                               "Change in High School Graduates", "Change in College Graduates",
-                               "Change in Urban Population", "Change in Unemployment",
-                               "Change in Income", "Change in Poverty", "Vacant Housing 1970",
-                               "Vacant Housing 1980", "Vacant Rental Housing 1970",
-                               "Change in Home Ownership", "Change in Plumbing",
-                               "Change in Revenue", "Change in Property Tax",
-                               "Change in Dependents", "Change in Education Spending",
-                               "Change in Highway Spending", "Change in Welfare Spending",
-                               "Change in Health Spending", "Built 1970-1980",
-                               "Built 1980-1990", "Built Before 1980"),
-          out = "Table_q3_3.tex")
+
+iv75_all <- ivreg(
+dlhouse ~ ddens + dmnfcg + dwhite + dfeml + dage65 + dhs +
+dcoll + durban + dunemp + dincome + dpoverty + downer + dplumb + drevenue +
+dtaxprop + depend + deduc + dhghwy + dwelfr + dhlth + vacant70 + vacant80 +
+vacrnt70 + blt1080 + blt2080 + bltold80 + popwhite + popage65 + pophs +
+popcoll + popincm + manwhite + manage65 + manhs + mancoll + manincm +
+whtage + whths + whtcoll + whtincm + incage + inchs + inccoll + pop2 +
+pop3 + urban2 + urban3 + white2 + white3 + femal2 + femal3 + age2 + age3 +
+hs2 + hs3 + coll2 + coll3 + unemp2 + unemp3 + mnfcg2 + mnfcg3 + income2 +
+income3 + poverty2 + poverty3 + vacant2 + vacant3 + owner2 + owner3 +
+plumb2 + plumb3 + revenue2 + revenue3 + taxprop2 + taxprop3 + epend2 +
+epend3 + pcteduc2 + pcteduc3 + pcthghw2 + pcthghw3 + pctwelf2 + pctwelf3 +
+pcthlth2 + pcthlth3 + built102 + built103 + built202 + built203 + builold2 +
+builold3 | I(dgtsp / 100) | tsp75, data = data
+)
+
+# Table with first stage and second stage results
+stargazer(first_stage, first_stage_main, first_stage_all,
+          type = "latex",
+          keep = c("tsp7576"),
+          title = "First Stage Results",
+          dep.var.labels = "A. Mean TSPs Changes",
+          covariate.labels = c("TSP nonattainment in 1975 or 1976"),
+          add.lines = list(c("Main effects", "No", "Yes", "Yes", "No", "Yes", "Yes"),
+                           c("Main and Polinomials", "No", "No", "Yes", "No", "No", "Yes")),
+          out = "Table_first_stage.tex")
+
+
+stargazer(second_stage, second_stage_main, second_stage_all,
+          type = "latex",
+          keep = c("tsp7576"),
+          title = "Second Stage Results",
+          dep.var.labels = c("B. Log Housing Changes"),
+          covariate.labels = c("TSP nonattainment in 1975 or 1976"),
+          add.lines = list(c("Main effects", "No", "Yes", "Yes", "No", "Yes", "Yes"),
+                           c("Main and Polinomials", "No", "No", "Yes", "No", "No", "Yes")),
+          out = "Table_second_stage.tex")
+
+
+stargazer(iv, iv_main,
+          type = "text",
+          keep = "dgtsp",
+          title = "IV Results",
+          dep.var.labels = c("TSPs Nonattainment in 1975 or 1976"),
+          covariate.labels = c("Mean TSPs (1/100)"),
+          add.lines = list(c("Main effects", "No", "Yes", "Yes", "No", "Yes", "Yes"),
+                           c("Main and Polinomials", "No", "No", "Yes", "No", "No", "Yes")),
+          out = "Table_IV.tex")
+
+stargazer(iv75, iv75_main,
+          type = "text",
+          keep = "dgtsp",
+          title = "IV Results",
+          dep.var.labels = c("TSPs Nonattainment in 1975"),
+          covariate.labels = c("Mean TSPs (1/100)"),
+          add.lines = list(c("Main effects", "No", "Yes", "Yes", "No", "Yes", "Yes"),
+                           c("Main and Polinomials", "No", "No", "Yes", "No", "No", "Yes")),
+          out = "Table_IV_75.tex")
 
 # Q4
-# Q4: Time series plot of the mean of mtspgm72 to mtspgm80, differentiating by tsp75
+# Replicate figure 4
 
-# Create a new data frame with the means for each year and tsp75 group
-mean_data <- data %>%
-    pivot_longer(cols = starts_with("mtspgm"), names_to = "year", values_to = "value") %>%
-    mutate(year = as.numeric(str_extract(year, "\\d+"))) %>%
-    group_by(year, tsp75) %>%
-    summarize(mean_value = mean(value, na.rm = TRUE)) %>%
-    filter(year <= 80) %>%
-    filter(year > 69) %>%
-    filter(!is.na(tsp75))%>%
-    ungroup()
+# Q4
+# Replicate figure 4
+
+# Create the plot
+
+
+# RD regressions
+
+data_rd <- data 
+
+data_rd <- data_rd %>% 
+    filter(mtspgm74 >= 50 & mtspgm74 <= 100) %>%
+    filter(!(tsp75 == 1 & mtspgm74 < 75))
+
+test<- ivreg(dlhouse ~ I(mtspgm74^2) + I(mtspgm75^2) + I(mtspgm75^2)*I(mtspgm75^2) |  I(dgtsp / 100) | tsp7576, data = data_rd)
+
+summary(test)
+
+test <- ivreg(dlhouse ~ I(mtspgm74^2) + I(mtspgm75^2) | I(dgtsp / 100) + tsp7576, data = data_rd)
+
+
+iv75_main <- ivreg(
+    dlhouse ~ ddens + dmnfcg + dwhite + dfeml + dage65 + dhs +
+    dcoll + durban + dunemp + dincome + dpoverty + downer + dplumb + drevenue +
+    dtaxprop + depend + deduc + dhghwy + dwelfr + dhlth + vacant70 + vacant80 +
+    vacrnt70 + blt1080 + blt2080 + bltold80 | I(dgtsp / 100) | tsp75,
+    data = data
+)
+
+
+
+# Print the summary of the RDD model
+summary(rdd_model)
+
+# Plot the RDD results
+plot(rdd_model)
+
+
+
+
     
 
-# Plot the time series
-fig4_tsp <- ggplot(mean_data, aes(x = year, y = mean_value, color = factor(tsp75)))+
-    geom_line() +
-    geom_point() +
-    labs(title = "Mean TSP Growth (1972-1980) by TSP 1975 Group",
-             x = "Year",
-             y = "Annual Average TSP",
-             color = "TSP 1975") +
-    theme_minimal() +
-    geom_vline(xintercept = 74, linetype = "dashed", color = "black") +
-    scale_y_continuous(limits = c(45, 95))
 
-    # Save the plot
-    ggsave("Figure_q4_tsp.jpg", plot = fig4, width = 8, height = 6, dpi = 300)
