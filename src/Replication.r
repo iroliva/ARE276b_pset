@@ -234,21 +234,45 @@ stargazer(iv75, iv75_main,
 
 # Q4
 # Replicate figure 4
+data_clean <- data %>% 
+    filter(!is.na(dlhouse) & !is.na(mtspgm74))
+data_tp75_yes <- data_clean %>% 
+        filter(tsp75 == 1)%>%
+        filter(tsp74 <= 125)
+data_tp75_no <- data_clean %>% filter(tsp75 != 1)
 
-# Q4
-# Replicate figure 4
+dlhouse_yes <- data_clean %>%
+        filter(tsp75 == 0) %>%
+        filter(mtspgm74 <= 125)
+
+dlhouse_no <- data_clean %>%
+    filter(tsp75 == 1) %>%
+    filter(mtspgm74 <= 125)
+
+KKK <- ksmooth(dlhouse_no$mtspgm74, dlhouse_no$dgtsp, "box", bandwidth = 1)
+
+
+plot(KKK,  type = "l", col = "blue", lwd = 2,
+    xlab = "Mean TSPs (1974)", ylab = "Log Housing Price Changes (1970-1980)",
+    main = "Smoothed Relationship between TSPs and Housing Price Changes")
 
 # Create the plot
 
 
 # RD regressions
 
+
+
 data_rd <- data 
 
-data_rd <- data_rd %>% 
-    filter(mtspgm74 >= 50 & mtspgm74 <= 100) %>%
-    filter(!(tsp75 == 1 & mtspgm74 < 75))
+data_rd <- data %>% filter(!(mtspgm74 < 75 & tsp75 == 1))
+A  <- ivreg(dlhouse ~ I(dgtsp / 100) | tsp75, data = data_rd%>% filter(mtspgm74 >= 50 & mtspgm74 <= 100))
+summary(A)
 
+
+
+A <- ivreg(dlhouse ~ I(dgtsp / 100) | tsp75, data = data_rd %>% filter(mtspgm74 >= 50 & mtspgm74 <= 100))
+summary(A)
 test<- ivreg(dlhouse ~ I(mtspgm74^2) + I(mtspgm75^2) + I(mtspgm75^2)*I(mtspgm75^2) |  I(dgtsp / 100) | tsp7576, data = data_rd)
 
 summary(test)
