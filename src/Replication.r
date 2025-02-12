@@ -55,8 +55,6 @@ my_ivreg <- function(y, controls, endog_var, instrument, data){
    return(iv_results)
 }
 
-
-
 make_balance_table <- function(var, controls, database, column_name, table_title,
                             table_label, table_out) {
   results <- list()
@@ -104,7 +102,6 @@ stargazer(Export_table, type = "latex", summary = FALSE, rownames = FALSE,
   return(Export_table)
 }
 
-
 make_figure <- function(data, x_var, y_var, y_axis_limits, y_label, x_label, file_name){
 
     my_figure <- ggplot(data %>% filter(mtspgm74 >= 25 & mtspgm74 <= 125), aes_string(x = x_var, y = y_var, color = "factor(tsp75)")) +
@@ -126,6 +123,63 @@ make_figure <- function(data, x_var, y_var, y_axis_limits, y_label, x_label, fil
     return(my_figure)
 }
 
+my_bootstrap_table <- function(controls, data){
+
+results_bootstrap <- list()
+
+garen_type <- function(data, indices, controls){
+    data <- data[indices, ]
+    step1 <- lm(dgtsp ~ tsp7576, data = data)
+
+
+    if(length(controls) == 1){
+    fml <-  as.formula("dlhouse ~ I(dgtsp / 100) + I(resid(step1) / 100) + I(dgtsp*resid(step1) / 10000)")
+    }
+
+    else{
+    fml <-  as.formula(paste(
+        "dlhouse ~ I(dgtsp / 100) + I(resid(step1) / 100) + I(dgtsp*resid(step1) / 10000) +", 
+        paste(controls, collapse = " + ")
+    ))
+    }
+    step2 <- lm(fml, data = data)
+    
+    return(coef(step2))
+}
+
+for (i in 1:length(iterations)) {
+  con <- iterations[[i]]
+  boot_results <- boot(data = data, statistic = garen_type, R = 1000, controls = con)
+  results_bootstrap[[i]] <- boot_results
+}
+
+bootstrap_table <- data.frame(matrix(ncol = length(iterations), nrow = 8))
+colnames(bootstrap_table) <- c("(1)", "(2)", "(3)")
+rownames(bootstrap_table) <- c("Mean TSPs (1/100)", "", "vi (first-stage residual) (1/100)", " ", "vi * mean TSPs (1/10,000)", "  ", "Main effects", "Main and Polinomials")
+
+bootstrap_table <- as.matrix(bootstrap_table)
+
+for (j in 1:length(iterations)) {
+  bootstrap_table[1, j] <- round(results_bootstrap[[j]]$t0[2], 3)
+  bootstrap_table[3, j] <- round(results_bootstrap[[j]]$t0[3], 3)
+  bootstrap_table[5, j] <- round(results_bootstrap[[j]]$t0[4], 3)
+  bootstrap_table[2, j] <- paste0("(", round(sd(results_bootstrap[[j]]$t[, 2]), 3), ")")
+  bootstrap_table[4, j] <- paste0("(", round(sd(results_bootstrap[[j]]$t[, 3]), 3), ")")
+  bootstrap_table[6, j] <- paste0("(", round(sd(results_bootstrap[[j]]$t[, 4]), 3), ")")
+}
+
+bootstrap_table[7, ] <- c("No", "Yes", "Yes")
+bootstrap_table[8, ] <- c("No", "No", "Yes")
+
+stargazer(bootstrap_table, type = "latex", summary = FALSE,
+          title = "Control Function Estimates of the Capitalization of 1970–80 Changes in TSPs Pollution, with Correction for Selectivity Bias Due to Random Coefficients",
+            label = "t:bootstrap_results",
+          font.size = "scriptsize",
+          out = "Table_bootstrap_results.tex")
+
+return(bootstrap_table)
+
+}
 
 
 # Q1. Estimate the relationship between changes in air pollution and housing prices:
@@ -181,7 +235,7 @@ Balance_table_q2 <- make_balance_table("tsp7576", economic_shocks, data,
 
 # 3. Revise instrument assumptions
 
-# 3.1 First stage relationship between regulation and air pollution changes.
+## 3.1 First stage relationship between regulation and air pollution changes.
 
 first_stage         <- lm(dgtsp ~ tsp7576, data = data)
 
@@ -195,7 +249,7 @@ second_stage_main   <- my_lm("dlhouse", "tsp7576", main_controls, data)
 
 second_stage_all    <- my_lm("dlhouse", "tsp7576", all_controls, data)
 
-### 2SLS
+## 2SLS
 Y <- "dlhouse"
 Endog<- "I(dgtsp/100)"
 Ins <- "tsp7576"
@@ -213,7 +267,7 @@ iv75_main <- my_ivreg(Y, main_controls, Endog, Ins75, data)
 
 iv75_all <- my_ivreg(Y, all_controls, Endog, Ins75, data)
 
-# Table with first stage and second stage results
+## Table with first stage and second stage results
 stargazer(first_stage, first_stage_main, first_stage_all,
           type = "latex",
           keep = c("tsp7576"),
@@ -267,14 +321,7 @@ stargazer(iv75, iv75_main,
 
 ## RDD design
 
-data_rd <- data 
 data_rd <- data %>% filter(!(mtspgm74 < 75 & tsp75 == 1))
-
-Y <- "dlhouse"
-Endog<- "I(dgtsp/100)"
-Ins <- "tsp7576"
-Ins75 <- "tsp75"
-
 
 rd              <- ivreg(dlhouse ~ I(dgtsp / 100) | tsp75, data = data_rd %>%
                     filter(mtspgm74 >= 50 & mtspgm74 <= 100))
@@ -325,26 +372,13 @@ stargazer(rd_badday, rd_badday_main,
 ## Replicate figures 4 and 5
 
 fig_4 <- make_figure(data, "mtspgm74", "dgtsp", c(-25,5), "1970–80 Change in Mean TSPs", "Geometric Mean TSPs in 1974", "Figure_4.pdf")
-fig_4
 
 fig_5 <- make_figure(data, "mtspgm74", "dlhouse", c(0.2,0.35), "1970–80 change in log housing values", "Geometric Mean TSPs in 1974", "Figure_5.pdf")
-fig_5
 
 # Q6: Garen - type control function and bootstrap
 
-garen_type <- function(data, indices, controls){
+no_controls <- c("")
+iterations <- list(no_controls, main_controls, all_controls)
 
-    data <- data[indices, ]
-    step1 <- lm(dgtsp ~ tsp7576, data = data)
-    step2 <- lm(dlhouse ~ I(dgtsp / 100) + resid(step1) + I(dgtsp*resid(step1)), data = data)
-    
-    return(step2)
-
-}
-
-boot_results <- boot(data = data, statistic = garen_type, R = 500)
-
-boot_results
-
-
+Bootstrap_results <- my_bootstrap_table(iterations, data)
 
