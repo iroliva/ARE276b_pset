@@ -47,6 +47,15 @@ my_lm <- function(y, var, controls, database){
     return (output)
 }
 
+my_ivreg <- function(y, controls, endog_var, instrument, data){
+     formula <- as.formula(paste(y, "~", paste(controls, collapse = " + "), "|", paste(endog_var, collapse = " + "), "|", paste(instrument, collapse = " + ")))
+   iv_results <- ivreg(formula, data = data)
+
+   return(iv_results)
+}
+
+
+
 make_balance_table <- function(var, controls, database, column_name, table_title,
                             table_label, table_out) {
   results <- list()
@@ -95,6 +104,26 @@ stargazer(Export_table, type = "latex", summary = FALSE, rownames = FALSE,
 }
 
 
+make_figure <- function(data, x_var, y_var, y_axis_limits, y_label, x_label, file_name){
+
+    my_figure <- ggplot(data %>% filter(mtspgm74 >= 25 & mtspgm74 <= 125), aes_string(x = x_var, y = y_var, color = "factor(tsp75)")) +
+    geom_point(alpha = 0.5) +
+    geom_smooth(method = "lm", formula = "y ~ x + I(x^2) + I(x^3) + I(x^4) + I(x^5) + I(x^6)", se = FALSE) +
+    theme_bw() +
+    xlab(x_label) +
+    geom_vline(xintercept = 75, linetype = "dashed", color = "black") +
+    ylab(y_label) +
+    scale_color_manual(values = c("red", "blue"), labels = c("Attainment in 1975", "Non attainment in 1975"), name = "") +
+    coord_cartesian(ylim = y_axis_limits) +
+    theme(aspect.ratio = 1/2, legend.position = "top")
+  
+    # Save the plot as a PDF
+    pdf(file_name, width = 8, height = 6)
+    print(my_figure)
+    dev.off()
+    
+    return(my_figure)
+}
 
 
 
@@ -165,55 +194,23 @@ second_stage_main   <- my_lm("dlhouse", "tsp7576", main_controls, data)
 
 second_stage_all    <- my_lm("dlhouse", "tsp7576", all_controls, data)
 
+### 2SLS
+Y <- "dlhouse"
+Endog<- "I(dgtsp/100)"
+Ins <- "tsp7576"
+Ins75 <- "tsp75"
+
 iv      <- ivreg(dlhouse ~ I(dgtsp / 100) | tsp7576, data = data)
 
-iv_main <- ivreg(
-    dlhouse ~ ddens + dmnfcg + dwhite + dfeml + dage65 + dhs +
-    dcoll + durban + dunemp + dincome + dpoverty + downer + dplumb + drevenue +
-    dtaxprop + depend + deduc + dhghwy + dwelfr + dhlth + vacant70 + vacant80 +
-    vacrnt70 + blt1080 + blt2080 + bltold80 | I(dgtsp / 100) | tsp7576,
-    data = data
-)
+iv_main <- my_ivreg(Y, main_controls, Endog, Ins, data)
 
-
-iv_all <- ivreg(
-dlhouse ~ ddens + dmnfcg + dwhite + dfeml + dage65 + dhs +
-dcoll + durban + dunemp + dincome + dpoverty + downer + dplumb + drevenue +
-dtaxprop + depend + deduc + dhghwy + dwelfr + dhlth + vacant70 + vacant80 +
-vacrnt70 + blt1080 + blt2080 + bltold80 + popwhite + popage65 + pophs +
-popcoll + popincm + manwhite + manage65 + manhs + mancoll + manincm +
-whtage + whths  + whtincm + incage + inchs + inccoll +
-urban2 + white2 + femal2 + age2 +
-hs2 + coll2 + unemp2 + mnfcg2 + income2  | I(dgtsp / 100) | tsp7576, data = data
-)
-summary(iv_all)
+iv_all <- my_ivreg(Y, all_controls,Endog, Ins, data)
 
 iv75      <- ivreg(dlhouse ~ I(dgtsp / 100) | tsp75, data = data)
 
-iv75_main <- ivreg(
-    dlhouse ~ ddens + dmnfcg + dwhite + dfeml + dage65 + dhs +
-    dcoll + durban + dunemp + dincome + dpoverty + downer + dplumb + drevenue +
-    dtaxprop + depend + deduc + dhghwy + dwelfr + dhlth + vacant70 + vacant80 +
-    vacrnt70 + blt1080 + blt2080 + bltold80 | I(dgtsp / 100) | tsp75,
-    data = data
-)
+iv75_main <- my_ivreg(Y, main_controls, Endog, Ins75, data)
 
-
-iv75_all <- ivreg(
-dlhouse ~ ddens + dmnfcg + dwhite + dfeml + dage65 + dhs +
-dcoll + durban + dunemp + dincome + dpoverty + downer + dplumb + drevenue +
-dtaxprop + depend + deduc + dhghwy + dwelfr + dhlth + vacant70 + vacant80 +
-vacrnt70 + blt1080 + blt2080 + bltold80 + popwhite + popage65 + pophs +
-popcoll + popincm + manwhite + manage65 + manhs + mancoll + manincm +
-whtage + whths + whtcoll + whtincm + incage + inchs + inccoll + pop2 +
-pop3 + urban2 + urban3 + white2 + white3 + femal2 + femal3 + age2 + age3 +
-hs2 + hs3 + coll2 + coll3 + unemp2 + unemp3 + mnfcg2 + mnfcg3 + income2 +
-income3 + poverty2 + poverty3 + vacant2 + vacant3 + owner2 + owner3 +
-plumb2 + plumb3 + revenue2 + revenue3 + taxprop2 + taxprop3 + epend2 +
-epend3 + pcteduc2 + pcteduc3 + pcthghw2 + pcthghw3 + pctwelf2 + pctwelf3 +
-pcthlth2 + pcthlth3 + built102 + built103 + built202 + built203 + builold2 +
-builold3 | I(dgtsp / 100) | tsp75, data = data
-)
+iv75_all <- my_ivreg(Y, all_controls, Endog, Ins75, data)
 
 # Table with first stage and second stage results
 stargazer(first_stage, first_stage_main, first_stage_all,
@@ -240,6 +237,7 @@ stargazer(second_stage, second_stage_main, second_stage_all,
           font.size = "scriptsize",
           out = "Table_second_stage.tex")
 
+##Tables with iv estimates
 stargazer(iv, iv_main,
           type = "latex",
           keep = "dgtsp",
@@ -264,58 +262,72 @@ stargazer(iv75, iv75_main,
           label = "t:q3_iv75",
           out = "Table_IV_75.tex")
 
-# Q4
-# Replicate figure 4
-data_clean <- data %>% 
-    filter(!is.na(dlhouse) & !is.na(mtspgm74))
-data_tp75_yes <- data_clean %>% 
-        filter(tsp75 == 1)%>%
-        filter(tsp74 <= 125)
-data_tp75_no <- data_clean %>% filter(tsp75 != 1)
+# Q4: RDD design
 
-dlhouse_yes <- data_clean %>%
-        filter(tsp75 == 0) %>%
-        filter(mtspgm74 <= 125)
-
-dlhouse_no <- data_clean %>%
-    filter(tsp75 == 1) %>%
-    filter(mtspgm74 <= 125)
-
-KKK <- ksmooth(dlhouse_no$mtspgm74, dlhouse_no$dgtsp, "box", bandwidth = 1)
-
-
-plot(KKK,  type = "l", col = "blue", lwd = 2,
-    xlab = "Mean TSPs (1974)", ylab = "Log Housing Price Changes (1970-1980)",
-    main = "Smoothed Relationship between TSPs and Housing Price Changes")
-
-# Create the plot
-
-
-# RD regressions
-
-
+## RDD design
 
 data_rd <- data 
-
 data_rd <- data %>% filter(!(mtspgm74 < 75 & tsp75 == 1))
-A  <- ivreg(dlhouse ~ I(dgtsp / 100) | tsp75, data = data_rd%>% filter(mtspgm74 >= 50 & mtspgm74 <= 100))
-summary(A)
+
+Y <- "dlhouse"
+Endog<- "I(dgtsp/100)"
+Ins <- "tsp7576"
+Ins75 <- "tsp75"
+
+
+rd              <- ivreg(dlhouse ~ I(dgtsp / 100) | tsp75, data = data_rd %>%
+                    filter(mtspgm74 >= 50 & mtspgm74 <= 100))
+
+rd_main         <- my_ivreg(Y, main_controls, Endog, Ins75, data_rd %>% 
+                    filter(mtspgm74 >= 50 & mtspgm74 <= 100))
+
+rd_all          <- my_ivreg(Y, all_controls, Endog, Ins75, data_rd %>% 
+                    filter(mtspgm74 >= 50 & mtspgm74 <= 100))
+
+rd_badday       <- ivreg(dlhouse ~ I(dgtsp / 100) | tsp75, data = data %>%
+                    filter(mtspgm74 >= 50 & mtspgm74 <= 75))
+
+rd_badday_main  <- my_ivreg(Y, main_controls, Endog, Ins75, data = data %>% 
+                    filter(mtspgm74 >= 50 & mtspgm74 <= 75))
+
+rd_badday_main  <- my_ivreg(Y, all_controls, Endog, Ins75, data = data %>% 
+                    filter(mtspgm74 >= 50 & mtspgm74 <= 75))
+
+##Make tables
+
+stargazer(rd, rd_main,
+          type = "latex",
+          keep = "dgtsp",
+          title = "RD of the Effect of 1970–80 Changes in TSPs Pollution on Changes in Log Housing Values",
+          dep.var.labels = c("B. Regression Discontinuity II TSPs Nonattainment in 1975"),
+          covariate.labels = c("Mean TSPs (1/100)"),
+          add.lines = list(c("Main effects", "No", "Yes", "Yes", "No", "Yes", "Yes"),
+                           c("Main and Polinomials", "No", "No", "Yes", "No", "No", "Yes")),
+          label = "t:q4_rd",
+          font.size = "scriptsize",
+          out = "Table_q4_rd.tex")
+
+stargazer(rd_badday, rd_badday_main,
+          type = "latex",
+          keep = "dgtsp",
+          title = "Bad day/matching of the Effect of 1970–80 Changes in TSPs Pollution on Changes in Log Housing Values",
+          dep.var.labels = c("C. Bad Day/Matching TSPs Nonattainment in 1975"),
+          covariate.labels = c("Mean TSPs (1/100)"),
+          add.lines = list(c("Main effects", "No", "Yes", "Yes", "No", "Yes", "Yes"),
+                           c("Main and Polinomials", "No", "No", "Yes", "No", "No", "Yes")),
+          label = "t:q4_rd_badday",
+          font.size = "scriptsize",
+          out = "Table_q4_rd_badday.tex")
 
 
 
-A <- ivreg(dlhouse ~ I(dgtsp / 100) | tsp75, data = data_rd %>% filter(mtspgm74 >= 50 & mtspgm74 <= 100))
-summary(A)
-test<- ivreg(dlhouse ~ I(mtspgm74^2) + I(mtspgm75^2) + I(mtspgm75^2)*I(mtspgm75^2) |  I(dgtsp / 100) | tsp7576, data = data_rd)
+## Replicate figures 4 and 5
 
-summary(test)
+fig_4 <- make_figure(data, "mtspgm74", "dgtsp", c(-25,5), "1970–80 Change in Mean TSPs", "Geometric Mean TSPs in 1974", "Figure_4.pdf")
+fig_4
 
-test <- ivreg(dlhouse ~ I(mtspgm74^2) + I(mtspgm75^2) | I(dgtsp / 100) + tsp7576, data = data_rd)
+fig_5 <- make_figure(data, "mtspgm74", "dlhouse", c(0.2,0.35), "1970–80 change in log housing values", "Geometric Mean TSPs in 1974", "Figure_5.pdf")
+fig_5
 
+# Q6: Garen - type control function and bootstrap
 
-iv75_main <- ivreg(
-    dlhouse ~ ddens + dmnfcg + dwhite + dfeml + dage65 + dhs +
-    dcoll + durban + dunemp + dincome + dpoverty + downer + dplumb + drevenue +
-    dtaxprop + depend + deduc + dhghwy + dwelfr + dhlth + vacant70 + vacant80 +
-    vacrnt70 + blt1080 + blt2080 + bltold80 | I(dgtsp / 100) | tsp75,
-    data = data
-)
