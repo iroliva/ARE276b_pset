@@ -47,7 +47,57 @@ my_lm <- function(y, var, controls, database){
     return (output)
 }
 
-# 1. Estimate the relationship between changes in air pollution and housing prices:
+make_balance_table <- function(var, controls, database, column_name, table_title,
+                            table_label, table_out) {
+  results <- list()
+
+  for (x in controls) {
+    formula <- as.formula(paste(var, "~", x))
+    coefs <- lm(formula, data = database)
+    results[[x]] <- summary(coefs)
+  }
+
+  coefficients <- sapply(results, function(y) y$coefficients[2, 1])
+  standard_errors <- sapply(results, function(y) y$coefficients[2, 2])
+  p_values <- sapply(results, function(y) y$coefficients[2, 4])
+
+  table_data <- data.frame(
+    Variable = names(results),
+    Coefficient = coefficients,
+    Serror = standard_errors,
+    p_value = p_values,
+    Stars = ifelse(p_values < 0.01, "***", 
+                   ifelse(p_values < 0.05, "**", 
+                          ifelse(p_values < 0.1, "*", "")))
+  )
+
+Export_table <- data.frame(matrix(ncol = 2, nrow = 2 * nrow(table_data)))
+colnames(Export_table) <- c("", column_name)
+
+for(i in 1:nrow(table_data)){
+        Export_table[2*i-1, 1] <- table_data$Variable[i]
+        Export_table[2*i, 1]   <- ""
+        Export_table[2 * i - 1, 2] <- paste0(
+            round(table_data$Coefficient[i], 3), 
+            table_data$Stars[i]
+        )
+        Export_table[2*i, 2] <- paste0("(", round(table_data$Serror[i], 3), ")")
+}
+
+stargazer(Export_table, type = "latex", summary = FALSE, rownames = FALSE,
+          title = table_title,
+          label = table_label,
+          dep.var.caption = column_name,
+          out = table_out)
+
+  return(Export_table)
+}
+
+
+
+
+
+# Q1. Estimate the relationship between changes in air pollution and housing prices:
 
 ## Regressions
 model1 <- lm(dlhouse ~ I(dgtsp / 100), data = data)
@@ -58,66 +108,45 @@ model1_all <- my_lm("dlhouse", "I(dgtsp / 100)", all_controls, data)
 
 
 ## Table with results
-stargazer(model1, model1_main, model1_all, type = "text",
+stargazer(model1, model1_main, model1_all, type = "latex",
           keep = "dgtsp",
-          title = "Regression Results",
+          title = "Changes in housing prices",
           dep.var.labels = "1970-80 (First Differences)",
           covariate.labels = "Mean TSPs (1/100)",
           add.lines = list(c("Main effects", "No", "Yes", "Yes"),
                            c("Main and Polinomials", "No", "No", "Yes")),
+          label = "t:q1"
+          title = "Relationship between changes in air pollution and housing prices",
           out = "Table_q1.tex")
 
+## Evidence on the negative relationship between TSP and economic shocks.
 
-# 2. Use tsp7576 as an instrument.
+data <- data %>%
+    mutate(dgtsp_above_median = ifelse(dgtsp > median(dgtsp, na.rm = TRUE), 0, 1))
 
+economic_shocks <- c("dincome", "dunemp", "dmnfcg", "ddens",
+                     "I(durban * 10)", "blt1080")
 
+title <- "Differences in sample means defined by TSP levels"
+label <- "t:q1_evidence"
+out <- "table_balance_q1.tex"  
+column_name <- "First Difference 1980 1970"
 
+Balance_table_q1 <- make_balance_table("dgtsp_above_median", economic_shocks, data, 
+                column_name, title, label, out)
 
-## Replication Table 2, column 4
-economic_vars <- c("dlhouse", "dgtsp", "dincome", "pop7080", "dunemp", "dmnfcg",
-                "ddens", "I(durban * 10)", "I(dpoverty * 10)",
-                "I(dwhite * 10)", "blt1080", "downer", "I(dplumb * 100)",
-                "drevenue", "dtaxprop", "deduc") 
-            # Loop to regress each variable in the list on tsp7576
-            regression_results <- list()
+# Q2. Use tsp7576 as an instrument.
 
-            for (var in economic_vars) {
-                formula <- as.formula(paste(var, "~ tsp7576"))
-                model <- lm(formula, data = data)
-                regression_results[[var]] <- summary(model)
-            }
+## Balance table
 
-            # Print summaries of the regression results
-            for (var in names(regression_results)) {
-                cat("Regression results for", var, ":\n")
-                print(regression_results[[var]])
-                cat("\n")}
+title_q2 <- "Differences in sample means by attainment status"
+label_q2 <- "t:q2"
+out_q2   <- "table_balance_q2.tex"
+column_name_q2 <- "TSPS non attainment in 1975 or 1976"
 
-# 2.1 Assumptions for being a valid instrument
+Balance_table_q2 <- make_balance_table("tsp7576", economic_shocks, data,
+    column_name_q2, title_q2, label_q2, out_q2)
 
-# Uncorrelation
-
-# 2.2 Evidence: Replicate balance table, column 4
-# Calculate means for each variable based on tsp75
-variables <- c("dlhouse", "dgtsp", "dincome", "pop7080", "dunemp", "dmnfcg",
-            "ddens", "I(durban * 10)", "I(dpoverty * 10)",
-            "I(dwhite * 10)", "blt1080", "downer", "I(dplumb * 100)",
-             "drevenue", "dtaxprop", "deduc")
-
-mean_differences <- data %>%
-    select(all_of(variables), tsp7576) %>%
-    pivot_longer(cols = -tsp7576, names_to = "variable", values_to = "value") %>%
-    mutate(variable = factor(variable, levels = variables)) %>%
-    group_by(variable) %>%
-    t_test(value ~ tsp7576) %>%
-    add_significance()
-
-mean_differences <- mean_differences %>%
-    mutate(statistic = -statistic)
-
-mean_differences
-
-# Create a table showing the results of the t-tests
 
 # 3. Revise instrument assumptions
 
@@ -152,15 +181,11 @@ dcoll + durban + dunemp + dincome + dpoverty + downer + dplumb + drevenue +
 dtaxprop + depend + deduc + dhghwy + dwelfr + dhlth + vacant70 + vacant80 +
 vacrnt70 + blt1080 + blt2080 + bltold80 + popwhite + popage65 + pophs +
 popcoll + popincm + manwhite + manage65 + manhs + mancoll + manincm +
-whtage + whths + whtcoll + whtincm + incage + inchs + inccoll + pop2 +
-pop3 + urban2 + urban3 + white2 + white3 + femal2 + femal3 + age2 + age3 +
-hs2 + hs3 + coll2 + coll3 + unemp2 + unemp3 + mnfcg2 + mnfcg3 + income2 +
-income3 + poverty2 + poverty3 + vacant2 + vacant3 + owner2 + owner3 +
-plumb2 + plumb3 + revenue2 + revenue3 + taxprop2 + taxprop3 + epend2 +
-epend3 + pcteduc2 + pcteduc3 + pcthghw2 + pcthghw3 + pctwelf2 + pctwelf3 +
-pcthlth2 + pcthlth3 + built102 + built103 + built202 + built203 + builold2 +
-builold3 | I(dgtsp / 100) | tsp7576, data = data
+whtage + whths  + whtincm + incage + inchs + inccoll +
+urban2 + white2 + femal2 + age2 +
+hs2 + coll2 + unemp2 + mnfcg2 + income2  | I(dgtsp / 100) | tsp7576, data = data
 )
+summary(iv_all)
 
 iv75      <- ivreg(dlhouse ~ I(dgtsp / 100) | tsp75, data = data)
 
@@ -193,43 +218,47 @@ builold3 | I(dgtsp / 100) | tsp75, data = data
 stargazer(first_stage, first_stage_main, first_stage_all,
           type = "latex",
           keep = c("tsp7576"),
-          title = "First Stage Results",
           dep.var.labels = "A. Mean TSPs Changes",
           covariate.labels = c("TSP nonattainment in 1975 or 1976"),
           add.lines = list(c("Main effects", "No", "Yes", "Yes", "No", "Yes", "Yes"),
                            c("Main and Polinomials", "No", "No", "Yes", "No", "No", "Yes")),
+          label = "t:q3_firststage",
+          title = "First stage relationship between regulation and air pollution changes",
           out = "Table_first_stage.tex")
 
 
 stargazer(second_stage, second_stage_main, second_stage_all,
           type = "latex",
           keep = c("tsp7576"),
-          title = "Second Stage Results",
           dep.var.labels = c("B. Log Housing Changes"),
           covariate.labels = c("TSP nonattainment in 1975 or 1976"),
           add.lines = list(c("Main effects", "No", "Yes", "Yes", "No", "Yes", "Yes"),
                            c("Main and Polinomials", "No", "No", "Yes", "No", "No", "Yes")),
+          label = "t:q3_secondstage",
+          title = "Reduced form relationship between regulation and housing prices",
           out = "Table_second_stage.tex")
 
 
 stargazer(iv, iv_main,
-          type = "text",
+          type = "latex",
           keep = "dgtsp",
-          title = "IV Results",
+          title = "IV Results using TSP7576 as instrumental variable",
           dep.var.labels = c("TSPs Nonattainment in 1975 or 1976"),
           covariate.labels = c("Mean TSPs (1/100)"),
           add.lines = list(c("Main effects", "No", "Yes", "Yes", "No", "Yes", "Yes"),
                            c("Main and Polinomials", "No", "No", "Yes", "No", "No", "Yes")),
+          label = "t:q3_iv",
           out = "Table_IV.tex")
 
 stargazer(iv75, iv75_main,
-          type = "text",
+          type = "latex",
           keep = "dgtsp",
-          title = "IV Results",
+          title = "IV Results using TSP75 as instrumental variable",
           dep.var.labels = c("TSPs Nonattainment in 1975"),
           covariate.labels = c("Mean TSPs (1/100)"),
           add.lines = list(c("Main effects", "No", "Yes", "Yes", "No", "Yes", "Yes"),
                            c("Main and Polinomials", "No", "No", "Yes", "No", "No", "Yes")),
+          label = "t:q3_iv75",
           out = "Table_IV_75.tex")
 
 # Q4
@@ -287,18 +316,3 @@ iv75_main <- ivreg(
     vacrnt70 + blt1080 + blt2080 + bltold80 | I(dgtsp / 100) | tsp75,
     data = data
 )
-
-
-
-# Print the summary of the RDD model
-summary(rdd_model)
-
-# Plot the RDD results
-plot(rdd_model)
-
-
-
-
-    
-
-
