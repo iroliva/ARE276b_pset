@@ -381,4 +381,3 @@ no_controls <- c("")
 iterations <- list(no_controls, main_controls, all_controls)
 
 Bootstrap_results <- my_bootstrap_table(iterations, data)
-
