@@ -88,6 +88,7 @@ stargazer(Export_table, type = "latex", summary = FALSE, rownames = FALSE,
           title = table_title,
           label = table_label,
           dep.var.caption = column_name,
+          font.size = "small",
           out = table_out)
 
   return(Export_table)
@@ -110,14 +111,14 @@ model1_all <- my_lm("dlhouse", "I(dgtsp / 100)", all_controls, data)
 ## Table with results
 stargazer(model1, model1_main, model1_all, type = "latex",
           keep = "dgtsp",
-          title = "Changes in housing prices",
           dep.var.labels = "1970-80 (First Differences)",
           covariate.labels = "Mean TSPs (1/100)",
           add.lines = list(c("Main effects", "No", "Yes", "Yes"),
                            c("Main and Polinomials", "No", "No", "Yes")),
-          label = "t:q1"
+          label = "t:q1",
           title = "Relationship between changes in air pollution and housing prices",
-          out = "Table_q1.tex")
+          out = "Table_q1.tex",
+          font.size = "scriptsize")
 
 ## Evidence on the negative relationship between TSP and economic shocks.
 
@@ -224,8 +225,8 @@ stargazer(first_stage, first_stage_main, first_stage_all,
                            c("Main and Polinomials", "No", "No", "Yes", "No", "No", "Yes")),
           label = "t:q3_firststage",
           title = "First stage relationship between regulation and air pollution changes",
+          font.size = "scriptsize",
           out = "Table_first_stage.tex")
-
 
 stargazer(second_stage, second_stage_main, second_stage_all,
           type = "latex",
@@ -236,8 +237,8 @@ stargazer(second_stage, second_stage_main, second_stage_all,
                            c("Main and Polinomials", "No", "No", "Yes", "No", "No", "Yes")),
           label = "t:q3_secondstage",
           title = "Reduced form relationship between regulation and housing prices",
+          font.size = "scriptsize",
           out = "Table_second_stage.tex")
-
 
 stargazer(iv, iv_main,
           type = "latex",
@@ -248,6 +249,7 @@ stargazer(iv, iv_main,
           add.lines = list(c("Main effects", "No", "Yes", "Yes", "No", "Yes", "Yes"),
                            c("Main and Polinomials", "No", "No", "Yes", "No", "No", "Yes")),
           label = "t:q3_iv",
+          font.size = "scriptsize",
           out = "Table_IV.tex")
 
 stargazer(iv75, iv75_main,
@@ -258,6 +260,7 @@ stargazer(iv75, iv75_main,
           covariate.labels = c("Mean TSPs (1/100)"),
           add.lines = list(c("Main effects", "No", "Yes", "Yes", "No", "Yes", "Yes"),
                            c("Main and Polinomials", "No", "No", "Yes", "No", "No", "Yes")),
+          font.size = "scriptsize",
           label = "t:q3_iv75",
           out = "Table_IV_75.tex")
 
