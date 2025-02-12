@@ -11,6 +11,7 @@ library(dplyr)
 library(rstatix)  # package for statistical tests and adding significance
 library(ivreg)  #package for IV regression
 library(ggplot2)
+library(boot)
 
 # Import data
 data_path <- "./data/poll7080.dta"
@@ -330,4 +331,20 @@ fig_5 <- make_figure(data, "mtspgm74", "dlhouse", c(0.2,0.35), "1970–80 change
 fig_5
 
 # Q6: Garen - type control function and bootstrap
+
+garen_type <- function(data, indices, controls){
+
+    data <- data[indices, ]
+    step1 <- lm(dgtsp ~ tsp7576, data = data)
+    step2 <- lm(dlhouse ~ I(dgtsp / 100) + resid(step1) + I(dgtsp*resid(step1)), data = data)
+    
+    return(step2)
+
+}
+
+boot_results <- boot(data = data, statistic = garen_type, R = 500)
+
+boot_results
+
+
 
