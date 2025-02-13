@@ -190,7 +190,7 @@ return(bootstrap_table)
 
 #0. Set up
 
-no_controls <- c("")
+no_controls <- c("") 
 
 main_controls <- c("ddens", "dmnfcg", "dwhite", "dfeml", "dage65", "dhs",
                     "dcoll", "durban", "dunemp", "dincome", "dpoverty",
