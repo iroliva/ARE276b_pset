@@ -17,30 +17,8 @@ library(boot)
 data_path <- "./data/poll7080.dta"
 data <- read_dta(data_path)
 
-#0. Set up
-
-main_controls <- c("ddens", "dmnfcg", "dwhite", "dfeml", "dage65", "dhs",
-                    "dcoll", "durban", "dunemp", "dincome", "dpoverty",
-                    "downer", "dplumb", "drevenue", "dtaxprop", "depend",
-                    "deduc", "dhghwy", "dwelfr", "dhlth", "vacant70",
-                    "vacant80", "vacrnt70", "blt1080", "blt2080", "bltold80")
-
-polinomial_controls <- c("popwhite", "popage65", "pophs", "popcoll", "popincm",
-                         "manwhite", "manage65", "manhs", "mancoll", "manincm",
-                         "whtage", "whths", "whtcoll", "whtincm", "incage",
-                         "inchs", "inccoll", "pop2", "pop3", "urban2",
-                         "urban3", "white2", "white3", "femal2", "femal3",
-                         "age2", "age3", "hs2", "hs3", "coll2", "coll3",
-                         "unemp2", "unemp3", "mnfcg2", "mnfcg3", "income2",
-                         "income3", "poverty2", "poverty3", "vacant2",
-                         "vacant3", "owner2", "owner3", "plumb2", "plumb3",
-                         "revenue2", "revenue3", "taxprop2", "taxprop3",
-                         "epend2", "epend3", "pcteduc2", "pcteduc3", "pcthghw2",
-                         "pcthghw3", "pctwelf2", "pctwelf3", "pcthlth2",
-                         "pcthlth3", "built102", "built103", "built202",
-                         "built203", "builold2", "builold3")
-
-all_controls <- c(main_controls, polinomial_controls)
+# Functions
+source("functions.R")
 
 my_lm <- function(y, var, controls, database){
     formula <- reformulate(termlabels = paste(c(var, controls)), response = y)
@@ -48,11 +26,40 @@ my_lm <- function(y, var, controls, database){
     return (output)
 }
 
+my_lm_wrapper <- function(y, var, iterations, database) {
+  lm_results <- list()
+
+  for (i in seq_along(iterations)) {
+    if (length(iterations[[i]]) == 1) {
+      formula <- as.formula(paste(y, "~", var))
+      lm_results[[i]] <- lm(formula, data = database)
+    } else {
+      lm_results[[i]] <- my_lm(y, var, iterations[[i]], database)
+    }
+  }
+  return(lm_results)
+}
+
 my_ivreg <- function(y, controls, endog_var, instrument, data){
      formula <- as.formula(paste(y, "~", paste(controls, collapse = " + "), "|", paste(endog_var, collapse = " + "), "|", paste(instrument, collapse = " + ")))
    iv_results <- ivreg(formula, data = data)
 
    return(iv_results)
+}
+
+my_iv_wrapper <- function(y, endog_var, instrument, iterations, database) {
+  iv_results <- list()
+
+  for (i in seq_along(iterations)) {
+    if (length(iterations[[i]]) == 1) {
+      formula <- as.formula(paste(y, "~", endog_var, "|", instrument))
+      iv_results[[i]] <- ivreg(formula, data = database)
+    } else {
+      iv_results[[i]] <- my_ivreg(y, iterations[[i]], endog_var, instrument, database)
+    }
+  }
+
+  return(iv_results)
 }
 
 make_balance_table <- function(var, controls, database, column_name, table_title,
@@ -181,19 +188,33 @@ return(bootstrap_table)
 
 }
 
+#0. Set up
+
+no_controls <- c("")
+
+main_controls <- c("ddens", "dmnfcg", "dwhite", "dfeml", "dage65", "dhs",
+                    "dcoll", "durban", "dunemp", "dincome", "dpoverty",
+                    "downer", "dplumb", "drevenue", "dtaxprop", 
+                    "deduc", "dhghwy", "dwelfr", "dhlth", "vacant70",
+                    "vacant80", "vacrnt70", "bltold80")
+
+polinomial_controls <- c("popincm", "manwhite", "manage65", "whtage",
+                      "urban2", "femal2", "age2", "mnfcg2", "plumb3",
+                      "pcteduc2", "pcteduc3", "pcthghw2", "pcthlth2")
+
+all_controls <- c(main_controls, polinomial_controls)
+
+iterations <- list(no_controls, main_controls, all_controls)
 
 # Q1. Estimate the relationship between changes in air pollution and housing prices:
 
 ## Regressions
-model1 <- lm(dlhouse ~ I(dgtsp / 100), data = data)
 
-model1_main <- my_lm("dlhouse", "I(dgtsp / 100)", main_controls, data)
-
-model1_all <- my_lm("dlhouse", "I(dgtsp / 100)", all_controls, data)
+q1_reg <- my_lm_wrapper("dlhouse", "I(dgtsp / 100)", iterations, data)
 
 
 ## Table with results
-stargazer(model1, model1_main, model1_all, type = "latex",
+stargazer(q1_reg[[1]], q1_reg[[2]], q1_reg[[3]], type = "latex",
           keep = "dgtsp",
           dep.var.labels = "1970-80 (First Differences)",
           covariate.labels = "Mean TSPs (1/100)",
@@ -233,42 +254,30 @@ Balance_table_q2 <- make_balance_table("tsp7576", economic_shocks, data,
     column_name_q2, title_q2, label_q2, out_q2)
 
 
-# 3. Revise instrument assumptions
+# Q3. Revise instrument assumptions
 
 ## 3.1 First stage relationship between regulation and air pollution changes.
 
-first_stage         <- lm(dgtsp ~ tsp7576, data = data)
+first_stage_reg     <- my_lm_wrapper("dgtsp", "tsp7576", iterations, data)
 
-first_stage_main    <- my_lm("dgtsp", "tsp7576", main_controls, data)
+## Second stage
 
-first_stage_all     <- my_lm("dgtsp", "tsp7576", all_controls, data)
+second_stage_reg    <- my_lm_wrapper("dlhouse", "tsp7576", iterations, data)
 
-second_stage        <- lm(dlhouse ~ tsp7576, data = data)
+## 2SLS regressions
 
-second_stage_main   <- my_lm("dlhouse", "tsp7576", main_controls, data)
-
-second_stage_all    <- my_lm("dlhouse", "tsp7576", all_controls, data)
-
-## 2SLS
+### Define variables
 Y <- "dlhouse"
 Endog<- "I(dgtsp/100)"
 Ins <- "tsp7576"
 Ins75 <- "tsp75"
 
-iv      <- ivreg(dlhouse ~ I(dgtsp / 100) | tsp7576, data = data)
+q3_iv_ <- my_iv_wrapper(Y, Endog, Ins, iterations, data)
 
-iv_main <- my_ivreg(Y, main_controls, Endog, Ins, data)
-
-iv_all <- my_ivreg(Y, all_controls,Endog, Ins, data)
-
-iv75      <- ivreg(dlhouse ~ I(dgtsp / 100) | tsp75, data = data)
-
-iv75_main <- my_ivreg(Y, main_controls, Endog, Ins75, data)
-
-iv75_all <- my_ivreg(Y, all_controls, Endog, Ins75, data)
+q3_iv75 <- my_iv_wrapper(Y, Endog, Ins75, iterations, data)
 
 ## Table with first stage and second stage results
-stargazer(first_stage, first_stage_main, first_stage_all,
+stargazer(first_stage_reg[[1]], first_stage_reg[[2]], first_stage_reg[[3]],
           type = "latex",
           keep = c("tsp7576"),
           dep.var.labels = "A. Mean TSPs Changes",
@@ -280,7 +289,7 @@ stargazer(first_stage, first_stage_main, first_stage_all,
           font.size = "scriptsize",
           out = "Table_first_stage.tex")
 
-stargazer(second_stage, second_stage_main, second_stage_all,
+stargazer(second_stage_reg[[1]], second_stage_reg[[2]], second_stage_reg[[3]],
           type = "latex",
           keep = c("tsp7576"),
           dep.var.labels = c("B. Log Housing Changes"),
@@ -293,7 +302,7 @@ stargazer(second_stage, second_stage_main, second_stage_all,
           out = "Table_second_stage.tex")
 
 ##Tables with iv estimates
-stargazer(iv, iv_main,
+stargazer(q3_iv[[1]], q3_iv[[2]],
           type = "latex",
           keep = "dgtsp",
           title = "IV Results using TSP7576 as instrumental variable",
@@ -305,7 +314,7 @@ stargazer(iv, iv_main,
           font.size = "scriptsize",
           out = "Table_IV.tex")
 
-stargazer(iv75, iv75_main,
+stargazer(q3_iv75[[1]], q3_iv75[[2]],
           type = "latex",
           keep = "dgtsp",
           title = "IV Results using TSP75 as instrumental variable",
@@ -323,27 +332,17 @@ stargazer(iv75, iv75_main,
 
 data_rd <- data %>% filter(!(mtspgm74 < 75 & tsp75 == 1))
 
-rd              <- ivreg(dlhouse ~ I(dgtsp / 100) | tsp75, data = data_rd %>%
+q4_rd <- my_iv_wrapper(Y, Endog, Ins75, iterations, data_rd %>%
                     filter(mtspgm74 >= 50 & mtspgm74 <= 100))
 
-rd_main         <- my_ivreg(Y, main_controls, Endog, Ins75, data_rd %>% 
-                    filter(mtspgm74 >= 50 & mtspgm74 <= 100))
+## Matching
 
-rd_all          <- my_ivreg(Y, all_controls, Endog, Ins75, data_rd %>% 
-                    filter(mtspgm74 >= 50 & mtspgm74 <= 100))
-
-rd_badday       <- ivreg(dlhouse ~ I(dgtsp / 100) | tsp75, data = data %>%
-                    filter(mtspgm74 >= 50 & mtspgm74 <= 75))
-
-rd_badday_main  <- my_ivreg(Y, main_controls, Endog, Ins75, data = data %>% 
-                    filter(mtspgm74 >= 50 & mtspgm74 <= 75))
-
-rd_badday_main  <- my_ivreg(Y, all_controls, Endog, Ins75, data = data %>% 
+q4_matching     <- my_iv_wrapper(Y, Endog, Ins75, iterations, data %>%
                     filter(mtspgm74 >= 50 & mtspgm74 <= 75))
 
 ##Make tables
 
-stargazer(rd, rd_main,
+stargazer(q4_rd[[1]], q4_rd[[2]],
           type = "latex",
           keep = "dgtsp",
           title = "RD of the Effect of 1970–80 Changes in TSPs Pollution on Changes in Log Housing Values",
@@ -355,7 +354,7 @@ stargazer(rd, rd_main,
           font.size = "scriptsize",
           out = "Table_q4_rd.tex")
 
-stargazer(rd_badday, rd_badday_main,
+stargazer(q4_matching[[1]], q4_matching[[2]],
           type = "latex",
           keep = "dgtsp",
           title = "Bad day/matching of the Effect of 1970–80 Changes in TSPs Pollution on Changes in Log Housing Values",
@@ -367,8 +366,6 @@ stargazer(rd_badday, rd_badday_main,
           font.size = "scriptsize",
           out = "Table_q4_rd_badday.tex")
 
-
-
 ## Replicate figures 4 and 5
 
 fig_4 <- make_figure(data, "mtspgm74", "dgtsp", c(-25,5), "1970–80 Change in Mean TSPs", "Geometric Mean TSPs in 1974", "Figure_4.pdf")
@@ -376,8 +373,5 @@ fig_4 <- make_figure(data, "mtspgm74", "dgtsp", c(-25,5), "1970–80 Change in M
 fig_5 <- make_figure(data, "mtspgm74", "dlhouse", c(0.2,0.35), "1970–80 change in log housing values", "Geometric Mean TSPs in 1974", "Figure_5.pdf")
 
 # Q6: Garen - type control function and bootstrap
-
-no_controls <- c("")
-iterations <- list(no_controls, main_controls, all_controls)
 
 Bootstrap_results <- my_bootstrap_table(iterations, data)
