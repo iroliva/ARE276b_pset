@@ -1,5 +1,4 @@
 # Functions
-source("functions.R")
 
 my_lm <- function(y, var, controls, database){
     formula <- reformulate(termlabels = paste(c(var, controls)), response = y)

@@ -18,7 +18,7 @@ data_path <- "./data/poll7080.dta"
 data <- read_dta(data_path)
 
 # Functions
-source("functions.R")
+source("./src/functions.R")
 
 my_lm <- function(y, var, controls, database){
     formula <- reformulate(termlabels = paste(c(var, controls)), response = y)
